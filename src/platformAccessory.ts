@@ -2,6 +2,7 @@ import { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import { Device, YeelightNgPlatform } from './platform';
 import { CommandType, State } from './types';
 import { BehaviorSubject } from 'rxjs';
+import { CONTROL_CHAR_UUID, NOTIFY_CHAR_UUID, SERVICE_UUID } from './settings';
 
 const defaultState = {
   on: false,
@@ -19,6 +20,8 @@ const defaultState = {
 export class YeelightNgPlatformAccessory {
   private service: Service;
   private state$ = new BehaviorSubject<State>(defaultState);
+  private controlChar;
+  private notifyChar;
   constructor(private readonly platform: YeelightNgPlatform, private readonly accessory: PlatformAccessory<Device>) {
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
@@ -114,6 +117,24 @@ export class YeelightNgPlatformAccessory {
     };
     this.state$.next(state);
     this.platform.log.debug('SetState', state);
+  }
+
+  private async connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.platform.bleManager.connect('public', this.uuid, {/*options*/}, (conn) => {
+          conn.gatt.discoverServicesByUuid(SERVICE_UUID, 1, (services) => {
+            services?.[0].discoverCharacteristics((characteristics) => {
+              this.controlChar = characteristics.find(c => c.uuid === CONTROL_CHAR_UUID);
+              this.notifyChar = characteristics.find(c => c.uuid === NOTIFY_CHAR_UUID);
+              resolve();
+            });
+          });
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
   }
 
 }

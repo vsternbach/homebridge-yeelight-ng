@@ -1,6 +1,6 @@
 const { HomebridgePluginUiServer } = require('@homebridge/plugin-ui-utils');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
+const { BleManager } = require('ble-host');
+const HciSocket = require('hci-socket');
 
 class UiServer extends HomebridgePluginUiServer {
   constructor() {
@@ -10,13 +10,26 @@ class UiServer extends HomebridgePluginUiServer {
     this.ready();
   }
 
+  async initBleManager() {
+    return new Promise((resolve, reject) => BleManager.create(new HciSocket(), {}, (err, manager) => err ? reject(err) : resolve(manager)));
+  }
+
   async scan({ name, timeout = 5 }) {
-    const { stdout } = await exec(`yeelightble scan -t ${timeout} ${name ? '| grep ' + name : ''}`);
-    return stdout?.split('\n').filter(d => !!d).map(d => {
-      const [mac, ...name] = d.split(' ');
-      if (mac.includes(':')) {
-        return { mac, name: name.join(' ') };
+    const devices = new Set();
+    const bleManager = await this.initBleManager();
+    const scanner = bleManager.startScan();
+    scanner.on('report', (eventData) => {
+      const { address, connectable, parsedDataItems } = eventData;
+      if (connectable) {
+        devices.set({ name:parsedDataItems.localName, mac: address });
       }
+    });
+    return new Promise((resolve, reject) => {
+      // eslint-disable-next-line no-undef
+      setTimeout(() => {
+        scanner.stopScan();
+        resolve(name ? [...devices].filter(d => d.name.includes(name)) : [...devices]);
+      }, timeout * 1000);
     });
   }
 }

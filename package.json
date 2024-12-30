@@ -37,17 +37,17 @@
     "candela"
   ],
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^1.0.0",
+    "@homebridge/plugin-ui-utils": "^2.0.0",
     "rxjs": "^7.8.1",
-    "ws": "^8.14.2"
+    "ble-host": "^1.0.3",
+    "hci-socket": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^18.16.20",
-    "@types/ws": "^8.5.8",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "eslint": "^8.45.0",
-    "homebridge": "^1.6.0",
+    "homebridge": "^1.8.5",
     "nodemon": "^2.0.22",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.1",

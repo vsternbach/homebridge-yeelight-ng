@@ -1,8 +1,9 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
+import { BleManager } from 'ble-host';
+import HciSocket from 'hci-socket';
+import {CONTROL_CHAR_UUID, NOTIFY_CHAR_UUID, PLATFORM_NAME, PLUGIN_NAME, SERVICE_UUID} from './settings';
 import { YeelightNgPlatformAccessory } from './platformAccessory';
 import { CommandPayload, CommandType, State } from './types';
-import { WebSocketClient } from './ws';
 import { throttle } from './utils';
 
 export interface Device {
@@ -18,17 +19,16 @@ export interface Device {
 export class YeelightNgPlatform implements DynamicPlatformPlugin {
   readonly Service: typeof Service = this.api.hap.Service;
   readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
-
+  bleManager!: typeof BleManager;
   // this is used to track restored cached accessories
   private readonly accessories: PlatformAccessory<Device>[] = [];
   private readonly stateHandlers = new Map<string, (state: State) => void>();
-  private ws!: WebSocketClient;
 
   constructor(readonly log: Logger, readonly config: PlatformConfig, readonly api: API) {
-    const { devices = [], name, websocket } = this.config;
+    const { devices = [], name } = this.config;
     this.log.debug('Finished initializing platform:', name);
     if (devices?.length) {
-      this.ws = new WebSocketClient(this.stateHandlers, log, websocket);
+      BleManager.create(new HciSocket(), {}, (err, manager) => err ? this.log.error(err) : this.bleManager = manager);
     } else {
       this.log.warn('Platform not started, no configured devices');
     }
@@ -39,10 +39,6 @@ export class YeelightNgPlatform implements DynamicPlatformPlugin {
     this.api.on('didFinishLaunching', () => {
       this.log.debug('Executed didFinishLaunching callback');
       this.updateAccessories(devices);
-    });
-
-    this.api.on('shutdown', () => {
-      this.ws?.close();
     });
   }
 
@@ -100,7 +96,7 @@ export class YeelightNgPlatform implements DynamicPlatformPlugin {
     this.log.debug(`Publish for uuid:${uuid} type:${type} payload: ${payload}`);
     const command = { type, payload };
     const message = JSON.stringify({ command, uuid });
-    this.ws?.send(message);
+    // this.ws?.send(message);
   }
 
   registerStateHandler(uuid: string, handler: (state: State) => void) {
